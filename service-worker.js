@@ -5,7 +5,7 @@
    fresh from the network — we never cache live marketplace data.
    ========================================================================== */
 
-const CACHE_NAME = 'epreem-shell-v7';
+const CACHE_NAME = 'epreem-shell-v8';
 
 const SHELL_ASSETS = [
   './',
