@@ -1,0 +1,27 @@
+{
+     "functions": { "source": "functions" },
+     "firestore": { "rules": "firestore.rules" },
+     "hosting": {
+       "public": ".",
+       "ignore": [
+         "firebase.json",
+         ".firebaserc",
+         "functions/**",
+         "node_modules/**",
+         ".firebase-cli-cache/**",
+         ".git/**",
+         ".agents/**",
+         "*.json",
+         "!manifest.json",
+         ".env",
+         ".env.example",
+         "server.js",
+         "create-admin.js",
+         "routes/**",
+         "config/**",
+         "database/**",
+         "app/**"
+       ],
+       "rewrites": [{ "source": "/api/**", "function": "api" }]
+     }
+   }

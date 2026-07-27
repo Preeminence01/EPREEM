@@ -1,0 +1,7 @@
+node_modules/
+.env
+epreem-fb6b6-firebase-adminsdk-fbsvc-8ff5a4f52a.json
+.firebase/
+.firebase-cli-cache/
+firebase-debug.log
+create-admin.js

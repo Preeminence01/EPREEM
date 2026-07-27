@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0E0D0B" />
+<title>Administrator Dashboard — EPREEM</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="site-header"></div>
+<main class="section"><div class="wrap">
+  <div class="section-head"><div><span class="eyebrow">EPREEM control centre</span><h1>Administrator dashboard</h1><p class="sub" id="adminIdentity">Loading administrator account…</p></div><button class="btn btn-line" id="signOut">Sign out</button></div>
+  <div class="approval-steps" id="adminCounts"><div><span>—</span><h3>Users</h3><p>Loading</p></div><div><span>—</span><h3>Listings</h3><p>Loading</p></div><div><span>—</span><h3>Pending review</h3><p>Loading</p></div></div>
+  <section class="section"><div class="section-head"><div><span class="eyebrow">Marketplace review</span><h2>Listings</h2></div></div><div class="panel" style="overflow:auto"><table class="dtable"><thead><tr><th>Listing</th><th>Seller</th><th>Status</th><th>Action</th></tr></thead><tbody id="listingRows"></tbody></table></div></section>
+</div></main>
+<div id="site-footer"></div>
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+<script>
+(async () => {
+  try {
+    const user = await EpreemAPI.auth.me();
+    if (!['admin', 'super_admin'].includes(user.role)) throw new Error('Administrator access is required.');
+    document.getElementById('adminIdentity').textContent = `${user.name || user.email} — administrator`;
+    const [users, listings] = await Promise.all([EpreemAPI.admin.users(), EpreemAPI.admin.listings()]);
+    const pending = listings.filter(item => item.status === 'pending').length;
+    document.getElementById('adminCounts').innerHTML = `<div><span>${users.length}</span><h3>Users</h3><p>Registered accounts</p></div><div><span>${listings.length}</span><h3>Listings</h3><p>All marketplace listings</p></div><div><span>${pending}</span><h3>Pending review</h3><p>Awaiting a decision</p></div>`;
+    document.getElementById('listingRows').innerHTML = listings.length ? listings.map(item => `<tr><td>${item.title || 'Untitled'}</td><td>${item.seller_name || item.seller_id || '—'}</td><td>${item.status || 'pending'}</td><td><button class="btn btn-line btn-sm" data-id="${item.id}" data-status="live">Approve</button></td></tr>`).join('') : '<tr><td colspan="4">No listings yet.</td></tr>';
+    document.querySelectorAll('[data-id]').forEach(button => button.addEventListener('click', async () => { await EpreemAPI.admin.updateListingStatus(button.dataset.id, button.dataset.status); location.reload(); }));
+  } catch (error) { location.href = 'admin-login.html'; }
+})();
+document.getElementById('signOut').addEventListener('click', async () => { await EpreemAPI.auth.logout(); location.href = 'admin-login.html'; });
+</script>
+</body>
+</html>
