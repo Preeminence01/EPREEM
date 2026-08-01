@@ -98,7 +98,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   try{ cart = await EpreemAPI.cart.list(); }
   catch(err){ toast('Could not load your cart'); return; }
 
-  const items = cart.items || [];
+  const items = Array.isArray(cart) ? cart : (cart.items || []);
   if(!items.length){
     document.getElementById('checkoutItems').innerHTML = '<p style="color:var(--ink-faint); font-size:13px;">Your cart is empty.</p>';
     return;

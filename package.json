@@ -1,4 +1,10 @@
 {
+  "name": "epreem",
+  "private": true,
+  "scripts": {
+    "start": "node render-server.js",
+    "check": "node --check render-server.js && node --check js/app.js && node --check js/api.js && node --check functions/index.js"
+  },
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

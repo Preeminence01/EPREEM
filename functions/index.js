@@ -50,14 +50,24 @@ app.get('/products', async (req, res) => {
   if (req.query.category_id) q = q.where('category_id', '==', req.query.category_id);
   const products = (await q.limit(50).get()).docs.map(clean);
   const term = (req.query.search || '').toLowerCase();
-  res.json(term ? products.filter(p => `${p.title} ${p.description || ''}`.toLowerCase().includes(term)) : products);
+  const data = term ? products.filter(p => `${p.title} ${p.description || ''}`.toLowerCase().includes(term)) : products;
+  res.json({ data, total: data.length });
 });
 app.get('/products/:id', async (req, res) => { const s = await db.doc(`products/${req.params.id}`).get(); return s.exists ? res.json(clean(s)) : res.status(404).json({ message: 'Product not found' }); });
 app.post('/seller/products', requireUser, role('seller', 'admin', 'super_admin'), async (req, res) => { const ref = db.collection('products').doc(); const product = { ...req.body, seller_id: req.user.uid, status: req.body.status || 'draft', created_at: FieldValue.serverTimestamp() }; await ref.set(product); res.status(201).json({ id: ref.id, ...product }); });
 app.put('/seller/products/:id', requireUser, role('seller', 'admin', 'super_admin'), async (req, res) => { const ref = db.doc(`products/${req.params.id}`); const s = await ref.get(); if (!s.exists) return res.status(404).json({ message: 'Product not found' }); if (s.data().seller_id !== req.user.uid && !['admin','super_admin'].includes(req.profile.role)) return res.status(403).json({ message: 'Forbidden' }); await ref.update({ ...req.body, updated_at: FieldValue.serverTimestamp() }); res.json({ id: ref.id, ...s.data(), ...req.body }); });
 app.delete('/seller/products/:id', requireUser, role('seller', 'admin', 'super_admin'), async (req, res) => { await db.doc(`products/${req.params.id}`).delete(); res.status(204).end(); });
 
-app.get('/cart', requireUser, async (req, res) => res.json((await db.collection(`users/${req.user.uid}/cart`).get()).docs.map(clean)));
+async function getCartItems(userId) {
+  const snapshots = await db.collection(`users/${userId}/cart`).get();
+  const items = await Promise.all(snapshots.docs.map(async (snapshot) => {
+    const item = clean(snapshot);
+    const product = await db.doc(`products/${item.product_id}`).get();
+    return product.exists ? { ...item, product: clean(product) } : null;
+  }));
+  return items.filter(Boolean);
+}
+app.get('/cart', requireUser, async (req, res) => res.json({ items: await getCartItems(req.user.uid) }));
 app.post('/cart', requireUser, async (req, res) => { const ref = db.collection(`users/${req.user.uid}/cart`).doc(); const item = { product_id: req.body.product_id, quantity: Number(req.body.quantity || 1) }; await ref.set(item); res.status(201).json({ id: ref.id, ...item }); });
 app.put('/cart/:id', requireUser, async (req, res) => { await db.doc(`users/${req.user.uid}/cart/${req.params.id}`).update({ quantity: Number(req.body.quantity) }); res.json({ message: 'Cart updated' }); });
 app.delete('/cart/:id', requireUser, async (req, res) => { await db.doc(`users/${req.user.uid}/cart/${req.params.id}`).delete(); res.status(204).end(); });
@@ -65,8 +75,8 @@ app.delete('/cart/:id', requireUser, async (req, res) => { await db.doc(`users/$
 app.get('/wishlist', requireUser, async (req, res) => res.json((await db.collection(`users/${req.user.uid}/wishlist`).get()).docs.map(clean)));
 app.post('/wishlist/toggle', requireUser, async (req, res) => {
   const ref = db.doc(`users/${req.user.uid}/wishlist/${req.body.product_id}`); const item = await ref.get();
-  if (item.exists) { await ref.delete(); return res.json({ wished: false }); }
-  await ref.set({ product_id: req.body.product_id, created_at: FieldValue.serverTimestamp() }); res.json({ wished: true });
+  if (item.exists) { await ref.delete(); return res.json({ saved: false, wished: false }); }
+  await ref.set({ product_id: req.body.product_id, created_at: FieldValue.serverTimestamp() }); res.json({ saved: true, wished: true });
 });
 
 app.get('/auctions', async (_req, res) => res.json((await db.collection('auctions').where('status', '==', 'live').get()).docs.map(clean)));
@@ -79,7 +89,20 @@ app.post('/auctions/:id/watch', requireUser, async (req, res) => { await db.doc(
 
 app.get('/orders', requireUser, async (req, res) => res.json((await db.collection('orders').where('buyer_id', '==', req.user.uid).get()).docs.map(clean)));
 app.get('/orders/:id', requireUser, async (req, res) => { const s = await db.doc(`orders/${req.params.id}`).get(); return s.exists && (s.data().buyer_id === req.user.uid || ['admin','super_admin','support_agent'].includes(req.profile.role)) ? res.json(clean(s)) : res.status(404).json({ message: 'Order not found' }); });
-app.post('/orders', requireUser, async (req, res) => { const ref = db.collection('orders').doc(); const order = { ...req.body, buyer_id: req.user.uid, order_number: `EPR-${Date.now()}`, payment_status: 'pending', fulfillment_status: 'pending', created_at: FieldValue.serverTimestamp() }; await ref.set(order); res.status(201).json({ id: ref.id, ...order }); });
+app.post('/orders', requireUser, async (req, res) => {
+  const cartItems = await getCartItems(req.user.uid);
+  if (!cartItems.length) return res.status(422).json({ message: 'Your cart is empty' });
+  const items = cartItems.map(({ product, quantity }) => ({ product_id: product.id, title_snapshot: product.title, quantity, unit_price: Number(product.price || 0) }));
+  const subtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+  const shipping_fee = subtotal > 0 ? 150 : 0;
+  const ref = db.collection('orders').doc();
+  const order = { ...req.body, buyer_id: req.user.uid, order_number: `EPR-${Date.now()}`, items, subtotal, shipping_fee, discount: 0, total: subtotal + shipping_fee, payment_status: 'pending', fulfillment_status: 'pending', created_at: FieldValue.serverTimestamp() };
+  const batch = db.batch();
+  batch.set(ref, order);
+  (await db.collection(`users/${req.user.uid}/cart`).get()).docs.forEach((snapshot) => batch.delete(snapshot.ref));
+  await batch.commit();
+  res.status(201).json({ id: ref.id, ...order });
+});
 
 app.get('/notifications', requireUser, async (req, res) => res.json((await db.collection(`users/${req.user.uid}/notifications`).orderBy('created_at', 'desc').limit(50).get()).docs.map(clean)));
 app.put('/notifications/:id/read', requireUser, async (req, res) => { await db.doc(`users/${req.user.uid}/notifications/${req.params.id}`).update({ read_at: FieldValue.serverTimestamp() }); res.json({ message: 'Notification marked read' }); });

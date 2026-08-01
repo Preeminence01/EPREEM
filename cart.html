@@ -77,7 +77,7 @@ async function renderCartPage(){
   try{ cart = await EpreemAPI.cart.list(); }
   catch(err){ toast('Could not load your cart'); return; }
 
-  const items = cart.items || [];
+  const items = Array.isArray(cart) ? cart : (cart.items || []);
   lastItems = items;
   const itemsEl = document.getElementById('cartItems');
 
@@ -103,12 +103,12 @@ async function renderCartPage(){
         <div class="sub">${p.condition || ''}</div>
       </div>
       <div class="qty-control">
-        <button type="button" onclick="changeQty(${ci.id},-1)">−</button>
+        <button type="button" onclick='changeQty(${JSON.stringify(ci.id)},-1)'>−</button>
         <input value="${ci.quantity}" readonly />
-        <button type="button" onclick="changeQty(${ci.id},1)">+</button>
+        <button type="button" onclick='changeQty(${JSON.stringify(ci.id)},1)'>+</button>
       </div>
       <div style="font-family:var(--display); color:var(--gold-bright); font-size:16px;">${EpreemUI.money(p.price * ci.quantity)}</div>
-      <a class="remove" href="#" onclick="event.preventDefault(); Cart.remove(${ci.id})">Remove</a>
+      <a class="remove" href="#" onclick='event.preventDefault(); Cart.remove(${JSON.stringify(ci.id)})'>Remove</a>
     </div>`;
   }).join('');
 

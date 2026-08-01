@@ -1,6 +1,6 @@
 # EPREEM Firebase backend
 
-EPREEM is a static PWA deployed with Firebase Hosting. Its API runs in the Firebase Cloud Function in `functions/index.js`, backed by Firebase Authentication and Cloud Firestore.
+EPREEM is a static PWA that can be deployed with Firebase Hosting or served by Render. Its API is backed by Firebase Authentication and Cloud Firestore.
 
 ## Setup
 
@@ -17,3 +17,7 @@ firebase deploy --only functions,hosting,firestore:rules
 ```
 
 Firebase Hosting serves the PWA and rewrites `/api/**` to the Cloud Function.
+
+## Render
+
+Render should use the repository root, run `npm install`, and start the service with `npm start`. Set `FIREBASE_SERVICE_ACCOUNT_JSON` to the complete Firebase service-account JSON string. The `render-server.js` entrypoint serves both the PWA and `/api` routes; it does not expose the service-account file or backend source directory.

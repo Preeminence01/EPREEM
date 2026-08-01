@@ -55,7 +55,9 @@ async function refreshCounts(){
   }
   try{
     const [cart, wishlist, notifs] = await Promise.all([api.cart.list(), api.wishlist.list(), api.notifications.list()]);
-    cartCache = cart.items || [];
+    // The Firebase API returns an array while older deployments returned
+    // `{ items: [...] }`. Accept both shapes during the transition.
+    cartCache = Array.isArray(cart) ? cart : (cart.items || []);
     wishlistCache = wishlist || [];
     notifUnreadCache = (notifs || []).filter(n => !n.read_at).length;
   }catch(e){ console.error('[EPREEM] refreshCounts failed:', e); }
@@ -93,8 +95,9 @@ async function toggleWishlist(productId, btnEl){
   if(!requireAuth('save items to your wishlist')) return;
   try{
     const res = await api.wishlist.toggle(productId);
-    if(btnEl) btnEl.classList.toggle('active', res.saved);
-    document.querySelectorAll('[data-fav="'+productId+'"]').forEach(el => el.classList.toggle('active', res.saved));
+    const saved = res.saved ?? res.wished;
+    if(btnEl) btnEl.classList.toggle('active', saved);
+    document.querySelectorAll('[data-fav="'+productId+'"]').forEach(el => el.classList.toggle('active', saved));
     toast(res.message);
     refreshCounts();
   }catch(e){ toast(e.message || 'Could not update wishlist'); }
@@ -142,6 +145,7 @@ function headerHTML(categories){
     <div class="header-top wrap">
       <a href="index.html" class="logo">
         <img class="logo-image" src="logo.jpg" alt="EPREEM" />
+        <span class="brand-name">EPREEM</span>
         <span class="tag">Eternal Preeminence</span>
       </a>
       <form class="search-bar" onsubmit="event.preventDefault(); location.href='browse.html?q='+encodeURIComponent(this.q.value);">
@@ -172,25 +176,11 @@ function headerHTML(categories){
       <div class="wrap">
         <a href="index.html">Home</a>
         <a href="browse.html">Browse</a>
-        <a href="auctions.html">Auctions</a>
-        <a href="product.html">Product</a>
-        <a href="cart.html">Cart</a>
-        <a href="checkout.html">Checkout</a>
-        <a href="order-detail.html">Order details</a>
-        <a href="messages.html">Messages</a>
-        <a href="notifications.html">Notifications</a>
-        <a href="profile.html">Profile</a>
-        <a href="seller-dashboard.html">Seller dashboard</a>
+        <a href="auctions.html">Live auctions</a>
+        <a href="seller-dashboard.html">Sell on EPREEM</a>
         <a href="about.html">About</a>
         <a href="trust.html">Trust</a>
         <a href="support.html">Support</a>
-        <a href="terms.html">Terms</a>
-        <a href="login.html">Sign in</a>
-        <a href="register.html">Register</a>
-        <a href="forgot-password.html">Forgot password</a>
-        <a href="reset-password.html">Reset password</a>
-        <a href="admin-login.html">Admin sign in</a>
-        <a href="admin-dashboard.html">Admin dashboard</a>
         ${categories.map(c => `<a href="browse.html?cat=${c.slug}">${c.icon || '◆'} ${c.name}</a>`).join('')}
         <a href="auctions.html" style="color:var(--gold-bright)">🔔 Live Auctions</a>
         <a href="seller-dashboard.html">Sell on EPREEM</a>
@@ -267,6 +257,26 @@ function mobileMarketNavHTML(){
   </nav>`;
 }
 
+function bindMobileMenu(header){
+  if(!header) return;
+  const toggle = header.querySelector('.mobile-toggle');
+  const nav = header.querySelector('.cat-nav');
+  if(!toggle || !nav) return;
+
+  // The layout markup is shared across every page. Remove the legacy inline
+  // handler so this single listener is always the source of truth.
+  toggle.removeAttribute('onclick');
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.addEventListener('click', () => {
+    const isOpen = nav.classList.toggle('force-open');
+    toggle.setAttribute('aria-expanded', String(isOpen));
+  });
+  nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
+    nav.classList.remove('force-open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }));
+}
+
 async function mountLayout(){
   const h = document.getElementById('site-header');
   const f = document.getElementById('site-footer');
@@ -275,7 +285,10 @@ async function mountLayout(){
   // Draw the site shell immediately. Firebase/category loading must never hide
   // the logo, navigation icons, or footer on a slow/offline connection.
   try{
-    if(h) h.innerHTML = headerHTML(categories);
+    if(h){
+      h.innerHTML = headerHTML(categories);
+      bindMobileMenu(h);
+    }
     if(f) f.innerHTML = footerHTML();
     const mobileNav = mobileMarketNavHTML();
     if(mobileNav && !document.querySelector('.mobile-market-nav')) {
@@ -294,7 +307,10 @@ async function mountLayout(){
 
   // Add category links once Firestore/Firebase has finished loading.
   try{
-    if(h) h.innerHTML = headerHTML(categories);
+    if(h){
+      h.innerHTML = headerHTML(categories);
+      bindMobileMenu(h);
+    }
   }catch(e){
     console.error('[EPREEM] mountLayout: rendering categories failed', e);
   }
