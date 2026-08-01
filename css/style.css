@@ -160,7 +160,8 @@ p{ margin:0; }
 @media (max-width:880px){
   .search-bar{ display:none; }
   .header-top{ flex-wrap:wrap; }
-  .mobile-toggle{ display:flex; align-items:center; justify-content:center; }
+  .mobile-toggle{ display:flex; align-items:center; justify-content:center; flex:0 0 38px; font-size:0; }
+  .mobile-toggle::before{ content:'\2630'; font-size:20px; line-height:1; }
   #site-header:empty::before{ left:var(--gutter); }
 }
 
