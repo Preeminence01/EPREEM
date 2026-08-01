@@ -5,7 +5,7 @@
    fresh from the network — we never cache live marketplace data.
    ========================================================================== */
 
-const CACHE_NAME = 'epreem-shell-v16';
+const CACHE_NAME = 'epreem-shell-v17';
 
 const SHELL_ASSETS = [
   './',
@@ -66,6 +66,23 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (event.request.method !== 'GET') return;
+
+  // HTML navigations must prefer the latest deployment. The previous
+  // cache-first strategy could keep an installed browser on an older header
+  // until it was opened a second time.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
