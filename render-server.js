@@ -19,6 +19,12 @@ const site = express();
 site.use(['/functions', '/node_modules'], (_req, res) => res.sendStatus(404));
 site.get('/epreem-fb6b6-firebase-adminsdk-fbsvc-8ff5a4f52a.json', (_req, res) => res.sendStatus(404));
 site.use('/api', api);
+// A service worker must be revalidated on every visit so installed phones
+// promptly receive responsive-layout and cache-policy updates.
+site.get('/service-worker.js', (_req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'service-worker.js'));
+});
 site.use(express.static(__dirname, { dotfiles: 'deny' }));
 
 site.listen(port, () => {

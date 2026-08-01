@@ -5,7 +5,7 @@
    fresh from the network — we never cache live marketplace data.
    ========================================================================== */
 
-const CACHE_NAME = 'epreem-shell-v17';
+const CACHE_NAME = 'epreem-shell-v18';
 
 const SHELL_ASSETS = [
   './',
@@ -80,6 +80,24 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // Styles and scripts control the responsive UI. Fetch them first so mobile
+  // layout changes appear as soon as a new deployment is available; use the
+  // cached copy only when the device is offline.
+  const isUiAsset = /\.(?:css|js)$/i.test(url.pathname);
+  if (isUiAsset) {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request))
     );
     return;
   }
