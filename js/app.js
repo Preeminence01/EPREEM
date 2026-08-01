@@ -166,8 +166,8 @@ function headerHTML(categories){
         </a>
         <button id="installAppBtn" class="btn btn-line btn-sm" style="display:none;" onclick="promptInstallApp()">Install App</button>
         ${user
-          ? `<a class="btn btn-line btn-sm" href="${accountHref}">${user.name.split(' ')[0]}</a>`
-          : `<a class="btn btn-line btn-sm" href="login.html">Sign In</a>`
+          ? `<a class="btn btn-line btn-sm mobile-account" href="${accountHref}">${user.name.split(' ')[0]}</a>`
+          : `<a class="btn btn-line btn-sm mobile-account" href="login.html">Sign In</a>`
         }
         <button class="mobile-toggle" aria-label="Menu" onclick="document.querySelector('.cat-nav').classList.toggle('force-open')">☰</button>
       </div>
