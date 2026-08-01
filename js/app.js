@@ -169,7 +169,7 @@ function headerHTML(categories){
           ? `<a class="btn btn-line btn-sm mobile-account" href="${accountHref}">${user.name.split(' ')[0]}</a>`
           : `<a class="btn btn-line btn-sm mobile-account" href="login.html">Sign In</a>`
         }
-        <button class="mobile-toggle" aria-label="Menu" onclick="document.querySelector('.cat-nav').classList.toggle('force-open')">☰</button>
+        <button class="mobile-toggle" aria-label="Menu" aria-expanded="false" onclick="const nav=this.closest('.site-header').querySelector('.cat-nav'); const open=nav.classList.toggle('force-open'); nav.style.display=open?'block':''; this.setAttribute('aria-expanded', String(open));">☰</button>
       </div>
     </div>
     <nav class="cat-nav" aria-label="Main navigation">
@@ -263,16 +263,12 @@ function bindMobileMenu(header){
   const nav = header.querySelector('.cat-nav');
   if(!toggle || !nav) return;
 
-  // The layout markup is shared across every page. Remove the legacy inline
-  // handler so this single listener is always the source of truth.
-  toggle.removeAttribute('onclick');
+  // Keep the inline handler as the single click source. It remains reliable
+  // even if this shared script is re-rendered while categories are loading.
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.addEventListener('click', () => {
-    const isOpen = nav.classList.toggle('force-open');
-    toggle.setAttribute('aria-expanded', String(isOpen));
-  });
   nav.querySelectorAll('a').forEach(link => link.addEventListener('click', () => {
     nav.classList.remove('force-open');
+    nav.style.display = '';
     toggle.setAttribute('aria-expanded', 'false');
   }));
 }
